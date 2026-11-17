@@ -14,3 +14,4 @@ class Config:
     max_depth: int
     filter_substring: str
     direct: bool = False
+    show_graph: bool = False

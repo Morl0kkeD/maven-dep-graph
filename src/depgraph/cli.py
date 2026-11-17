@@ -7,6 +7,8 @@ from .config import Config
 from . import validators
 from .fetcher import build_pom_url, fetch_pom
 from .parser import parse_dependencies
+from .testrepo import load_test_graph
+from .graph import build_graph
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -15,7 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="depgraph",
         description="Построение графа зависимостей Maven-пакетов",
     )
-    parser.add_argument("--package", required=True, help="Имя пакета")
+    parser.add_argument("--package", required=True, help="Имя пакета (group:artifact для URL)")
     parser.add_argument("--repo", required=True, help="URL или путь к файлу")
     parser.add_argument(
         "--mode",
@@ -33,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--direct", action="store_true", help="Показать только прямые зависимости"
     )
+    parser.add_argument(
+        "--show-graph", action="store_true", help="Построить и вывести граф зависимостей"
+    )
     return parser
 
 
@@ -48,6 +53,7 @@ def parse_config(argv: list[str]) -> Config:
         max_depth=validators.validate_max_depth(str(args.depth)),
         filter_substring=args.filter,
         direct=args.direct,
+        show_graph=args.show_graph,
     )
 
 
@@ -65,6 +71,28 @@ def print_config(config: Config) -> None:
         print(f"{key} = {value}")
 
 
+def get_fetch_fn(config: Config):
+    """Создать функцию для получения прямых зависимостей."""
+    if config.repo_mode == "file":
+        data = load_test_graph(config.repo_url)
+        return lambda node: data.get(node, [])
+
+    # Режим url: создаем функцию, которая парсит group:artifact из имени
+    def fetch(node: str) -> list[str]:
+        if ":" not in node:
+            return []
+        group, artifact = node.split(":")
+        # Если версия не указана в зависимостях, берем переданную (упрощение)
+        url = build_pom_url(config.repo_url, group, artifact, config.package_version)
+        try:
+            xml = fetch_pom(url)
+            deps = parse_dependencies(xml)
+            return [f"{g}:{a}" for g, a, v in deps]
+        except ValueError:
+            return []
+    return fetch
+
+
 def main(argv: list[str] | None = None) -> int:
     """Точка входа CLI."""
     try:
@@ -77,13 +105,11 @@ def main(argv: list[str] | None = None) -> int:
         if config.repo_mode != "url":
             print("Флаг --direct работает только в режиме 'url'", file=sys.stderr)
             return 1
-            
         try:
             group, artifact = config.package_name.split(":")
         except ValueError:
             print("Формат пакета должен быть groupId:artifactId", file=sys.stderr)
             return 1
-
         url = build_pom_url(config.repo_url, group, artifact, config.package_version)
         print(f"Скачивание: {url}")
         try:
@@ -92,12 +118,25 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as exc:
             print(f"Ошибка: {exc}", file=sys.stderr)
             return 1
-        
         print(f"Прямые зависимости для {config.package_name} ({config.package_version}):")
         if not deps:
             print("  (нет)")
         for d in deps:
             print(f"  {d[0]}:{d[1]}:{d[2] if d[2] else 'auto'}")
+        return 0
+
+    if config.show_graph:
+        fetch_fn = get_fetch_fn(config)
+        graph = build_graph(
+            config.package_name,
+            config.max_depth,
+            config.filter_substring,
+            fetch_fn
+        )
+        print("Граф зависимостей:")
+        for node, deps in graph.items():
+            deps_str = ", ".join(deps) if deps else "(нет)"
+            print(f"  {node} -> {deps_str}")
         return 0
 
     print_config(config)
