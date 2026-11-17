@@ -16,3 +16,4 @@ class Config:
     direct: bool = False
     show_graph: bool = False
     show_load_order: bool = False
+    render: str = ""

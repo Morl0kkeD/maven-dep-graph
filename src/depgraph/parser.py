@@ -21,8 +21,8 @@ def parse_dependencies(pom_xml: str) -> list[tuple[str, str, str]]:
         group = dep.findtext(f"{POM_NAMESPACE}groupId", "")
         artifact = dep.findtext(f"{POM_NAMESPACE}artifactId", "")
         version = dep.findtext(f"{POM_NAMESPACE}version", "")
-        
+
         if group and artifact:
             deps.append((group, artifact, version))
-            
+
     return deps

@@ -1,0 +1,9 @@
+@startuml
+skinparam linetype ortho
+node "A" as A
+node "B" as B
+node "C" as C
+A --> B
+B --> C
+C --> A
+@enduml

@@ -1,0 +1,16 @@
+@startuml
+skinparam linetype ortho
+node "com.google.guava:guava" as com_google_guava_guava
+node "com.google.guava:failureaccess" as com_google_guava_failureaccess
+node "com.google.guava:listenablefuture" as com_google_guava_listenablefuture
+node "com.google.code.findbugs:jsr305" as com_google_code_findbugs_jsr305
+node "org.checkerframework:checker-qual" as org_checkerframework_checker-qual
+node "com.google.errorprone:error_prone_annotations" as com_google_errorprone_error_prone_annotations
+node "com.google.j2objc:j2objc-annotations" as com_google_j2objc_j2objc-annotations
+com_google_guava_guava --> com_google_guava_failureaccess
+com_google_guava_guava --> com_google_guava_listenablefuture
+com_google_guava_guava --> com_google_code_findbugs_jsr305
+com_google_guava_guava --> org_checkerframework_checker-qual
+com_google_guava_guava --> com_google_errorprone_error_prone_annotations
+com_google_guava_guava --> com_google_j2objc_j2objc-annotations
+@enduml

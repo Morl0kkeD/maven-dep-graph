@@ -20,7 +20,7 @@ def test_parse_valid_pom() -> None:
         </dependency>
       </dependencies>
     </project>"""
-    
+
     deps = parse_dependencies(xml)
     assert len(deps) == 2
     assert deps[0] == ("org.slf4j", "slf4j-api", "2.0.9")

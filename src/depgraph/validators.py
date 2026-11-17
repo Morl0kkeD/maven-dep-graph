@@ -45,7 +45,8 @@ def validate_max_depth(value: str) -> int:
     try:
         depth = int(value)
     except ValueError as exc:
-        raise ValueError(f"Глубина должна быть целым числом: {value!r}") from exc
+        raise ValueError(
+            f"Глубина должна быть целым числом: {value!r}") from exc
     if depth < 1:
         raise ValueError("Глубина должна быть >= 1")
     return depth

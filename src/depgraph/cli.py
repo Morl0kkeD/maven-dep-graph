@@ -10,6 +10,7 @@ from .parser import parse_dependencies
 from .testrepo import load_test_graph
 from .graph import build_graph
 from .loader import load_order
+from .visualizer import to_plantuml, render_plantuml
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,8 +19,16 @@ def build_parser() -> argparse.ArgumentParser:
         prog="depgraph",
         description="Построение графа зависимостей Maven-пакетов",
     )
-    parser.add_argument("--package", required=True, help="Имя пакета (group:artifact для URL)")
-    parser.add_argument("--repo", required=True, help="URL или путь к файлу")
+    parser.add_argument(
+        "--package",
+        required=True,
+        help="Имя пакета (group:artifact)"
+    )
+    parser.add_argument(
+        "--repo",
+        required=True,
+        help="URL или путь к файлу"
+    )
     parser.add_argument(
         "--mode",
         choices=validators.MODES,
@@ -28,20 +37,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", required=True, help="Версия пакета")
     parser.add_argument(
-        "--depth", type=int, default=3, help="Максимальная глубина анализа"
+        "--depth", type=int, default=3, help="Глубина анализа"
     )
     parser.add_argument(
-        "--filter", default="", help="Подстрока для фильтрации пакетов"
+        "--filter",
+        default="",
+        help="Подстрока для фильтрации пакетов"
     )
     parser.add_argument(
-        "--direct", action="store_true", help="Показать только прямые зависимости"
+        "--direct",
+        action="store_true",
+        help="Показать только прямые зависимости"
     )
     parser.add_argument(
-        "--show-graph", action="store_true", help="Построить и вывести граф зависимостей"
+        "--show-graph",
+        action="store_true",
+        help="Построить и вывести граф"
     )
     parser.add_argument(
-        "--show-load-order", action="store_true", help="Показать порядок загрузки"
+        "--show-load-order",
+        action="store_true",
+        help="Показать порядок загрузки"
     )
+    parser.add_argument("--render", help="Путь для сохранения PNG-картинки")
     return parser
 
 
@@ -59,6 +77,7 @@ def parse_config(argv: list[str]) -> Config:
         direct=args.direct,
         show_graph=args.show_graph,
         show_load_order=args.show_load_order,
+        render=args.render,
     )
 
 
@@ -86,7 +105,9 @@ def get_fetch_fn(config: Config):
         if ":" not in node:
             return []
         group, artifact = node.split(":")
-        url = build_pom_url(config.repo_url, group, artifact, config.package_version)
+        url = build_pom_url(
+            config.repo_url, group, artifact, config.package_version
+        )
         try:
             xml = fetch_pom(url)
             deps = parse_dependencies(xml)
@@ -106,14 +127,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if config.direct:
         if config.repo_mode != "url":
-            print("Флаг --direct работает только в режиме 'url'", file=sys.stderr)
+            print("Флаг --direct только для 'url'", file=sys.stderr)
             return 1
         try:
             group, artifact = config.package_name.split(":")
         except ValueError:
-            print("Формат пакета должен быть groupId:artifactId", file=sys.stderr)
+            print("Формат пакета: groupId:artifactId", file=sys.stderr)
             return 1
-        url = build_pom_url(config.repo_url, group, artifact, config.package_version)
+        url = build_pom_url(
+            config.repo_url, group, artifact, config.package_version
+        )
         print(f"Скачивание: {url}")
         try:
             xml = fetch_pom(url)
@@ -121,7 +144,8 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as exc:
             print(f"Ошибка: {exc}", file=sys.stderr)
             return 1
-        print(f"Прямые зависимости для {config.package_name} ({config.package_version}):")
+        print(f"Прямые зависимости для {config.package_name}:")
+        print(f"  Версия: {config.package_version}")
         if not deps:
             print("  (нет)")
         for d in deps:
@@ -154,6 +178,23 @@ def main(argv: list[str] | None = None) -> int:
         print("Порядок загрузки:")
         for i, node in enumerate(order, 1):
             print(f"  {i}. {node}")
+        return 0
+
+    if config.render:
+        fetch_fn = get_fetch_fn(config)
+        graph = build_graph(
+            config.package_name,
+            config.max_depth,
+            config.filter_substring,
+            fetch_fn
+        )
+        uml = to_plantuml(graph)
+        try:
+            png_path = render_plantuml(uml, config.render)
+            print(f"Картинка сохранена: {png_path}")
+        except FileNotFoundError as exc:
+            print(f"Ошибка: {exc}", file=sys.stderr)
+            return 1
         return 0
 
     print_config(config)

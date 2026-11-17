@@ -13,6 +13,7 @@ def get_fetch_fn(filename: str):
     """Загрузить тестовый граф."""
     path = FIXTURES_DIR / filename
     data = load_test_graph(str(path))
+
     def fetch(node: str) -> list[str]:
         return data.get(node, [])
     return fetch
