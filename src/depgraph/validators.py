@@ -3,7 +3,8 @@
 import re
 
 MODES = ("url", "file")
-NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.-]*$")
+# Добавлено двоеточие (:) для поддержки формата groupId:artifactId
+NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_.:-]*$")
 VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}([.-][\w]+)?$")
 
 

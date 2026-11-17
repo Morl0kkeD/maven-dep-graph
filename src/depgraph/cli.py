@@ -5,6 +5,8 @@ import sys
 
 from .config import Config
 from . import validators
+from .fetcher import build_pom_url, fetch_pom
+from .parser import parse_dependencies
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +30,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--filter", default="", help="Подстрока для фильтрации пакетов"
     )
+    parser.add_argument(
+        "--direct", action="store_true", help="Показать только прямые зависимости"
+    )
     return parser
 
 
@@ -42,6 +47,7 @@ def parse_config(argv: list[str]) -> Config:
         package_version=validators.validate_version(args.version),
         max_depth=validators.validate_max_depth(str(args.depth)),
         filter_substring=args.filter,
+        direct=args.direct,
     )
 
 
@@ -66,5 +72,33 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"Ошибка: {exc}", file=sys.stderr)
         return 2
+
+    if config.direct:
+        if config.repo_mode != "url":
+            print("Флаг --direct работает только в режиме 'url'", file=sys.stderr)
+            return 1
+            
+        try:
+            group, artifact = config.package_name.split(":")
+        except ValueError:
+            print("Формат пакета должен быть groupId:artifactId", file=sys.stderr)
+            return 1
+
+        url = build_pom_url(config.repo_url, group, artifact, config.package_version)
+        print(f"Скачивание: {url}")
+        try:
+            xml = fetch_pom(url)
+            deps = parse_dependencies(xml)
+        except ValueError as exc:
+            print(f"Ошибка: {exc}", file=sys.stderr)
+            return 1
+        
+        print(f"Прямые зависимости для {config.package_name} ({config.package_version}):")
+        if not deps:
+            print("  (нет)")
+        for d in deps:
+            print(f"  {d[0]}:{d[1]}:{d[2] if d[2] else 'auto'}")
+        return 0
+
     print_config(config)
     return 0

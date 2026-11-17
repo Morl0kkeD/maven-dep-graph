@@ -13,3 +13,4 @@ class Config:
     package_version: str
     max_depth: int
     filter_substring: str
+    direct: bool = False
