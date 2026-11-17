@@ -9,6 +9,7 @@ from .fetcher import build_pom_url, fetch_pom
 from .parser import parse_dependencies
 from .testrepo import load_test_graph
 from .graph import build_graph
+from .loader import load_order
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +39,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--show-graph", action="store_true", help="Построить и вывести граф зависимостей"
     )
+    parser.add_argument(
+        "--show-load-order", action="store_true", help="Показать порядок загрузки"
+    )
     return parser
 
 
@@ -54,6 +58,7 @@ def parse_config(argv: list[str]) -> Config:
         filter_substring=args.filter,
         direct=args.direct,
         show_graph=args.show_graph,
+        show_load_order=args.show_load_order,
     )
 
 
@@ -77,12 +82,10 @@ def get_fetch_fn(config: Config):
         data = load_test_graph(config.repo_url)
         return lambda node: data.get(node, [])
 
-    # Режим url: создаем функцию, которая парсит group:artifact из имени
     def fetch(node: str) -> list[str]:
         if ":" not in node:
             return []
         group, artifact = node.split(":")
-        # Если версия не указана в зависимостях, берем переданную (упрощение)
         url = build_pom_url(config.repo_url, group, artifact, config.package_version)
         try:
             xml = fetch_pom(url)
@@ -137,6 +140,20 @@ def main(argv: list[str] | None = None) -> int:
         for node, deps in graph.items():
             deps_str = ", ".join(deps) if deps else "(нет)"
             print(f"  {node} -> {deps_str}")
+        return 0
+
+    if config.show_load_order:
+        fetch_fn = get_fetch_fn(config)
+        graph = build_graph(
+            config.package_name,
+            config.max_depth,
+            config.filter_substring,
+            fetch_fn
+        )
+        order = load_order(graph)
+        print("Порядок загрузки:")
+        for i, node in enumerate(order, 1):
+            print(f"  {i}. {node}")
         return 0
 
     print_config(config)

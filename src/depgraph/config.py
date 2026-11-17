@@ -15,3 +15,4 @@ class Config:
     filter_substring: str
     direct: bool = False
     show_graph: bool = False
+    show_load_order: bool = False
